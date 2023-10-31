@@ -13,16 +13,18 @@ C, MIN, MAX = Align.CENTER, Align.MIN, Align.MAX
 
 THICKNESS = 6.45
 FR = 3
-HULL_THICKNESS = 2
+HULL_THICKNESS = 3
 
 
 class Cover(Part):
-    def __init__(self, cols=5):
+    def __init__(self, cols=5, **kwargs):
+        kwargs["label"] = kwargs.get("label", "Cover")
         self.cols = cols
         self._base_plate_sk = BasePlateSketch(
             cols=self.cols, do_fillet=False, screw_radius=0
         )
         self.joints = {}
+
         sk = self.make_base_sk()
         part = self.base_part(sk)
         part = self.cut_inset(part)
@@ -32,7 +34,9 @@ class Cover(Part):
         part = self.add_switch_hole(part)
         part = self.add_button_hole(part)
 
-        super().__init__(part.wrapped, joints=self.joints)
+        self.add_bottom_joint(part)
+
+        super().__init__(part.wrapped, joints=self.joints, **kwargs)
 
     def make_base_sk(self):
         # Thicken by FR, then round corners by same amount
@@ -52,7 +56,7 @@ class Cover(Part):
 
         # FIXME: find a way to only select "outer" corners, this can break easily
         unfilleted_vertices = unfilleted_vertices.sort_by(Axis.Y).sort_by(Axis.X)
-        outer_vertices = ShapeList([unfilleted_vertices[i] for i in (1, 3, 5)])
+        outer_vertices = ShapeList([unfilleted_vertices[i] for i in (0, 3, 5)])
         cover_sk = fillet(outer_vertices, 2.3)
 
         return cover_sk
@@ -63,9 +67,9 @@ class Cover(Part):
 
         # fillet top and bottom faces
         bottom = part.edges().group_by(Axis.Z)[0]
-        part = fillet(bottom, 3)
+        part = fillet(bottom, HULL_THICKNESS)
         top = part.edges().group_by(Axis.Z)[-1]
-        part = fillet(top, 3)
+        part = fillet(top, HULL_THICKNESS)
 
         # Add MC cover portion, flat on top
         sk = MCCutoutSketch()
@@ -98,9 +102,7 @@ class Cover(Part):
         top = part.faces().sort_by(Axis.Z).sort_by(SortBy.AREA)[-2]
         inset_sk = Plane((0, 0, top.center().Z)) * self._base_plate_sk
         part -= extrude(inset_sk, -4.5)
-        inner_face = (
-            part.faces().filter_by(Axis.Z).sort_by(Axis.Z).sort_by(SortBy.AREA).last
-        )
+        inner_face = part.faces().filter_by(Axis.Z).group_by(SortBy.AREA)[-2].sort_by(Axis.Z).first
         self._inset_plane = Plane((0, 0, inner_face.center().Z))
         return part
 
@@ -140,13 +142,13 @@ class Cover(Part):
         rel_pos = edge.vertices().sort_by(Axis.Y).first.center()
 
         # switch plate dimensions
-        depth, width, height, slide_range = 1.2, 10.2, 2.7, 2.5
+        depth, width, height, slide_range = HULL_THICKNESS-0.8, 10.2, 2.7, 2.5
 
         pos = rel_pos + Vector(0, 1.65 + width/2, 0)
         self._switch_plane = plane = Plane(pos, x_dir=(0, 1, 0), z_dir=(1, 0, 0))
 
         part -= plane * Box(slide_range * 2, height, HULL_THICKNESS, align=(C, MIN, MAX))
-        part -= plane * Box(width, height, depth, align=(C, MIN, MAX))
+        part -= plane * Box(width, height, 0.01 + depth, align=(C, MIN, MAX))
         part -= plane * Box(slide_range * 2, height * 2, depth, align=(C, MIN, MAX))
 
         # Add the linear joint for the switch part to connect to
@@ -162,7 +164,12 @@ class Cover(Part):
         pos = self._switch_plane.location.position + Vector(0, 8, 0)
         plane = Plane(pos, x_dir=(0, 1, 0), z_dir=(1, 0, 0))
         part -= plane * Box(2.7, 2.7, HULL_THICKNESS, align=(C, MIN, MAX))
-        part -= plane * Box(4.7, 5.4, 1.2, align=(C, MIN, MAX))
-        joint_plane = Plane(pos - Vector(1.2, 0, 0), x_dir=(0, 1, 0), z_dir=(1, 0, 0))
+        part -= plane * Box(4.7, 5.4, 0.01 + HULL_THICKNESS * 0.3, align=(C, MIN, MAX))
+        joint_plane = Plane(pos - Vector(HULL_THICKNESS * 0.3, 0, 0), x_dir=(0, 1, 0), z_dir=(1, 0, 0))
         self.joints["button"] = RigidJoint("button", part, joint_location=joint_plane.location)
         return part
+    
+    def add_bottom_joint(self, part):
+        # Add joint for bottom
+        bottom_plane = Rotation(about_z=180) * Pos(0, 0, THICKNESS) * Location(-Plane.XY)
+        self.joints["bottom"] = RigidJoint("bottom", part, joint_location=Location(bottom_plane))

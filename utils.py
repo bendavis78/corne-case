@@ -1,5 +1,4 @@
 from build123d import *
-from ocp_vscode import show
 
 def viz_plane(p, size=100):
     square = p * Rectangle(size, size)

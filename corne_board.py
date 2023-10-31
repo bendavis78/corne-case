@@ -2,9 +2,6 @@ import math
 
 from build123d import *
 from build123d.build_common import LocationList
-from ocp_vscode import show as _show, Camera
-
-show = lambda *args: _show(*args, progress=None, reset_camera=Camera.KEEP)
 
 
 # Defaults
