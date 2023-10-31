@@ -11,6 +11,8 @@ KEY_MARGIN = Vector(2, 1.5)
 STAGGER_OFFSETS = [2, 4.45, 6.8, 4.45, -0.2, -0.2]
 KEY_SPACING = Vector(KEY_SIZE + (KEY_MARGIN.X * 2), KEY_SIZE + (KEY_MARGIN.Y * 2))
 SCREW_RADIUS = 1.2
+POWER_SWITCH_Y_POS = 6.5
+RESET_BUTTON_Y_POS = 15
 
 
 class KeyLocations(LocationList):
@@ -110,8 +112,8 @@ class MCCutoutSketch(Sketch):
 class MCCoverScrewLocations(LocationList):
     def __init__(self):
         positions = [
-            Vector((2, 0)),
-            Vector((15.7, 7.2))
+            Vector((1.8, .4)),
+            Vector((15.5, 7.6))
         ]
         locations = [Location(v) for v in positions]
         local_locations = Locations._move_to_existing(locations)

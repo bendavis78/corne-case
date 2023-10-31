@@ -7,7 +7,7 @@ C, MIN, MAX = Align.CENTER, Align.MIN, Align.MAX
 
 class BottomPlate(Part):
     def __init__(self, cols=6, **kwargs):
-        kwargs["label"] = kwargs.get("label", "MC/display cover")
+        kwargs["label"] = kwargs.get("label", "Bottom plate")
         sk = make_face(BasePlateLine(cols=cols))
         part = extrude(sk, 1.3)
 

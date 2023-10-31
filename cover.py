@@ -1,5 +1,6 @@
 import math
 from build123d import *
+from ocp_vscode import show, Camera
 
 from corne_board import (
     BasePlateSketch,
@@ -7,6 +8,8 @@ from corne_board import (
     MCCutoutSketch,
     KeyLocations,
     ScrewLocations,
+    POWER_SWITCH_Y_POS,
+    RESET_BUTTON_Y_POS,
 )
 
 C, MIN, MAX = Align.CENTER, Align.MIN, Align.MAX
@@ -117,7 +120,7 @@ class Cover(Part):
         # Cut out MC display hole
         sk = MCCutoutSketch()
         bbox = sk.bounding_box()
-        offset = 53
+        offset = 51
         sk -= Pos(bbox.max.X, bbox.max.Y) * Rectangle(
             bbox.size.X, bbox.size.Y - offset, align=(MAX, MAX)
         )
@@ -136,19 +139,22 @@ class Cover(Part):
         return part
 
     def add_switch_hole(self, part):
-        # Add switch
+        # Reference position based on the MC cover screw locations
         top_face = part.faces().group_by(Axis.Z)[0]
         edge = top_face.edges().filter_by(Axis.Y).sort_by(Axis.X)[1]
-        rel_pos = edge.vertices().sort_by(Axis.Y).first.center()
+        pos = edge.vertices().sort_by(Axis.Y).first.center()
+        pos.Y = POWER_SWITCH_Y_POS
 
         # switch plate dimensions
         depth, width, height, slide_range = HULL_THICKNESS-0.8, 10.2, 2.7, 2.5
-
-        pos = rel_pos + Vector(0, 1.65 + width/2, 0)
         self._switch_plane = plane = Plane(pos, x_dir=(0, 1, 0), z_dir=(1, 0, 0))
 
+        overhang = 0.3
         part -= plane * Box(slide_range * 2, height, HULL_THICKNESS, align=(C, MIN, MAX))
-        part -= plane * Box(width, height, 0.01 + depth, align=(C, MIN, MAX))
+        slide_area = Pos(0, 0, overhang * 2) * Box(
+            width, height, overhang + 0.01 + depth, align=(C, MIN, MAX)
+        )
+        part -= plane * slide_area
         part -= plane * Box(slide_range * 2, height * 2, depth, align=(C, MIN, MAX))
 
         # Add the linear joint for the switch part to connect to
@@ -161,11 +167,14 @@ class Cover(Part):
 
     def add_button_hole(self, part):
         # Set relative to the switch plane
-        pos = self._switch_plane.location.position + Vector(0, 8, 0)
+        pos = self._switch_plane.location.position
+        pos.Y = RESET_BUTTON_Y_POS
         plane = Plane(pos, x_dir=(0, 1, 0), z_dir=(1, 0, 0))
         part -= plane * Box(2.7, 2.7, HULL_THICKNESS, align=(C, MIN, MAX))
         part -= plane * Box(4.7, 5.4, 0.01 + HULL_THICKNESS * 0.3, align=(C, MIN, MAX))
-        joint_plane = Plane(pos - Vector(HULL_THICKNESS * 0.3, 0, 0), x_dir=(0, 1, 0), z_dir=(1, 0, 0))
+        joint_plane = Plane(
+            pos - Vector(HULL_THICKNESS * 0.3, 0, 0), x_dir=(0, 1, 0), z_dir=(1, 0, 0)
+        )
         self.joints["button"] = RigidJoint("button", part, joint_location=joint_plane.location)
         return part
     

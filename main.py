@@ -52,4 +52,4 @@ for part in assembly.children:
         os.mkdir("stl")
 
     part.export_stl(os.path.join("stl", f"{part.label}.stl"))
-    part.export_step(os.path.join("stl", f"{part.label}.step"))
+    part.export_step(os.path.join("step", f"{part.label}.step"))
