@@ -1,22 +1,17 @@
-import math
 from build123d import *
-from ocp_vscode import show, Camera
 
 from corne_board import (
     BasePlateSketch,
     MCCoverScrewLocations,
-    MCCutoutSketch,
     KeyLocations,
     ScrewLocations,
     POWER_SWITCH_Y_POS,
     RESET_BUTTON_Y_POS,
 )
+from mc_cover import MCCoverCutoutSketch, MCCoverSketch
+from params import THICKNESS, FR, HULL_THICKNESS
 
 C, MIN, MAX = Align.CENTER, Align.MIN, Align.MAX
-
-THICKNESS = 6.45
-FR = 3
-HULL_THICKNESS = 3
 
 
 class Cover(Part):
@@ -38,6 +33,7 @@ class Cover(Part):
         part = self.add_button_hole(part)
 
         self.add_bottom_joint(part)
+        self.add_mc_cover_joint(part)
 
         super().__init__(part.wrapped, joints=self.joints, **kwargs)
 
@@ -74,28 +70,8 @@ class Cover(Part):
         top = part.edges().group_by(Axis.Z)[-1]
         part = fillet(top, HULL_THICKNESS)
 
-        # Add MC cover portion, flat on top
-        sk = MCCutoutSketch()
-        bbox = sk.bounding_box()
-
-        # extend edges
-        offset = HULL_THICKNESS
-        bot = sk.vertices().sort_by(Axis.Y).first.to_vector()
-        top = sk.vertices().group_by(Axis.Y)[-1].sort_by(Axis.X).first.to_vector()
-        ln = Line(bot, bot + Vector(-offset, -offset * math.tan(math.radians(30))))
-        ln += Line(ln @ 1, Vector((ln @ 1).X, bbox.max.Y + offset))
-        ln += Line(ln @ 1, Vector(bbox.max.X, (ln @ 1).Y))
-        ln += Line(ln @ 1, Vector(bbox.max.X, bbox.max.Y))
-        ln += sk.edges().filter_by(Axis.X).sort_by(Axis.Y).last.to_wire()
-        ln += sk.edges().filter_by(Axis.Y).sort_by(Axis.X).first.to_wire()
-
-        sk += make_face(ln)
-
-        # round corners
-        sk = fillet(sk.vertices().group_by(Axis.Y)[-1], FR)
-        sk = fillet(sk.vertices().group_by(Axis.Y)[0].sort_by(Axis.X).first, FR)
-
         # Add the MC window shape to the overall shape
+        sk = MCCoverSketch()
         part += extrude(sk, THICKNESS / 2)
 
         return part
@@ -118,13 +94,7 @@ class Cover(Part):
 
     def cut_display(self, part):
         # Cut out MC display hole
-        sk = MCCutoutSketch()
-        bbox = sk.bounding_box()
-        offset = 51
-        sk -= Pos(bbox.max.X, bbox.max.Y) * Rectangle(
-            bbox.size.X, bbox.size.Y - offset, align=(MAX, MAX)
-        )
-        sk = Pos(0, bbox.size.Y - offset) * sk
+        sk = MCCoverCutoutSketch()
         part -= extrude(sk, THICKNESS)
         return part
 
@@ -182,3 +152,9 @@ class Cover(Part):
         # Add joint for bottom
         bottom_plane = Rotation(about_z=180) * Pos(0, 0, THICKNESS) * Location(-Plane.XY)
         self.joints["bottom"] = RigidJoint("bottom", part, joint_location=Location(bottom_plane))
+
+    def add_mc_cover_joint(self, part):
+        # Add joint for bottom
+        pos = MCCoverScrewLocations().locations[0].position
+        joint_location = Location(Plane.XY, pos)
+        self.joints["mc_cover"] = RigidJoint("mc_cover", part, joint_location=joint_location)

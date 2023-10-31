@@ -3,7 +3,6 @@ import os
 
 from build123d import *
 from ocp_vscode import show, Camera
-from OCP import Message  # Make things less verbose
 
 from cover import Cover
 from switch import PowerSwitch
@@ -12,7 +11,8 @@ from bottom import BottomPlate
 from mc_cover import MCCover
 
 
-# --| Boilerplate |----------------------------------------
+# --| Boilerplate for development |------------------------
+from OCP import Message  # Make things less verbose
 for printer in Message.Message.DefaultMessenger_s().Printers():
     printer.SetTraceLevel(Message.Message_Gravity(3))
 log = logging.getLogger(__name__)
@@ -31,10 +31,11 @@ mc_cover = MCCover()
 cover.joints["switch_slide"].connect_to(switch.joints["joint"])
 cover.joints["button"].connect_to(button.joints["joint"])
 cover.joints["bottom"].connect_to(bottom.joints["joint"])
+cover.joints["mc_cover"].connect_to(mc_cover.joints["joint"])
 
 assembly = Compound(
     label="Corne Wireless Case",
-    children=[cover, switch, button, bottom]
+    children=[cover, switch, button, bottom, mc_cover]
 )
 
 for part in assembly.children:
@@ -52,4 +53,6 @@ for part in assembly.children:
         os.mkdir("stl")
 
     part.export_stl(os.path.join("stl", f"{part.label}.stl"))
+    log.info(f'Exported "{part.label}.stl"')
     part.export_step(os.path.join("step", f"{part.label}.step"))
+    log.info(f'Exported "{part.label}.step"')
